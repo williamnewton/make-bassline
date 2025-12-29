@@ -38,7 +38,15 @@ public:
     // Pattern state for UI access (lock-free)
     PatternState patternState;
 
+    // Manual pattern editing
+    void toggleStep(int step);
+    bool isStepManuallyToggled(int step) const;
+    void clearManualToggles();
+
 private:
+    // Manual step overrides (16 steps max)
+    std::array<std::atomic<bool>, 16> manualToggles;
+    std::atomic<bool> hasManualToggles{false};
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     // Generator components

@@ -14,6 +14,9 @@ BasslineGeneratorProcessor::BasslineGeneratorProcessor()
                          ),
       apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
+    // Initialize manual toggles to false
+    for (auto& toggle : manualToggles)
+        toggle.store(false);
 }
 
 BasslineGeneratorProcessor::~BasslineGeneratorProcessor()
@@ -171,6 +174,13 @@ void BasslineGeneratorProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
             bool shouldTrigger = euclidean.shouldTrigger(step, numSteps, hits, rotation);
 
+            // Apply manual toggles if present
+            if (hasManualToggles.load() && step < 16)
+            {
+                if (manualToggles[step].load())
+                    shouldTrigger = !shouldTrigger; // Toggle the state
+            }
+
             if (shouldTrigger)
             {
                 // Send note-off for previous note if active
@@ -247,6 +257,32 @@ void BasslineGeneratorProcessor::setStateInformation(const void* data, int sizeI
     {
         apvts.replaceState(juce::ValueTree::fromXml(*xml));
     }
+}
+
+//==============================================================================
+// Manual pattern editing
+void BasslineGeneratorProcessor::toggleStep(int step)
+{
+    if (step >= 0 && step < 16)
+    {
+        bool currentState = manualToggles[step].load();
+        manualToggles[step].store(!currentState);
+        hasManualToggles.store(true);
+    }
+}
+
+bool BasslineGeneratorProcessor::isStepManuallyToggled(int step) const
+{
+    if (step >= 0 && step < 16)
+        return manualToggles[step].load();
+    return false;
+}
+
+void BasslineGeneratorProcessor::clearManualToggles()
+{
+    for (auto& toggle : manualToggles)
+        toggle.store(false);
+    hasManualToggles.store(false);
 }
 
 //==============================================================================

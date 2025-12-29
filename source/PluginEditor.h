@@ -39,6 +39,27 @@ private:
     // Randomization button
     juce::TextButton randomizeButton;
 
+    // Logo
+    juce::Image logoImage;
+
+    // Logo component
+    class LogoComponent : public juce::Component
+    {
+    public:
+        void setImage(const juce::Image& img) { image = img; repaint(); }
+
+        void paint(juce::Graphics& g) override
+        {
+            if (image.isValid())
+                g.drawImage(image, getLocalBounds().toFloat(),
+                           juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
+        }
+    private:
+        juce::Image image;
+    };
+
+    LogoComponent logoComponent;
+
     // Visualizer - big step grid
     StepSequencerGrid stepGrid;
 

@@ -15,22 +15,23 @@ public:
     {
         auto bounds = getLocalBounds().toFloat();
 
-        // Simple black outline
+        // Pop-art style: Bold black outline
         g.setColour(juce::Colours::black);
         g.fillRoundedRectangle(bounds, 4.0f);
 
-        // Dark background
-        g.setColour(juce::Colour(0xff1a1a1a));
-        g.fillRoundedRectangle(bounds.reduced(2), 4.0f);
-
-        // Yellow border
+        // Bright yellow background (pop-art)
         g.setColour(juce::Colour(0xffffdd00));
-        g.drawRoundedRectangle(bounds.reduced(2), 4.0f, 1.5f);
+        g.fillRoundedRectangle(bounds.reduced(3), 4.0f);
 
-        // Text - simple and clean
-        g.setFont(juce::Font(12.0f, juce::Font::bold));
-        g.setColour(juce::Colour(0xffffdd00));
-        g.drawText("Export MIDI", bounds, juce::Justification::centred);
+        // Black inner border for comic-book effect
+        g.setColour(juce::Colours::black);
+        g.drawRoundedRectangle(bounds.reduced(3), 4.0f, 2.0f);
+
+        // Text centered - consistent with other buttons
+        auto textArea = bounds.reduced(8);
+        g.setFont(juce::Font(13.0f, juce::Font::bold));
+        g.setColour(juce::Colours::black);
+        g.drawText("Drag to export", textArea, juce::Justification::centred);
     }
 
     void mouseDrag(const juce::MouseEvent& event) override

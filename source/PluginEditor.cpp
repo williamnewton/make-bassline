@@ -1,14 +1,20 @@
 #include "PluginEditor.h"
 #include "utils/MidiPatternExporter.h"
+#include "BinaryData.h"
 
 BasslineGeneratorEditor::BasslineGeneratorEditor(BasslineGeneratorProcessor& p)
     : AudioProcessorEditor(&p), processorRef(p)
 {
-    setSize(650, 450);
+    setSize(800, 480);  // Wider for logo, taller for bigger knobs
 
     // Make window resizable with constraints
     setResizable(true, true);
-    setResizeLimits(550, 380, 900, 600);
+    setResizeLimits(700, 420, 1100, 650);
+
+    // Load logo from binary data
+    logoImage = juce::ImageCache::getFromMemory(BinaryData::makebasslogo_png, BinaryData::makebasslogo_pngSize);
+    logoComponent.setImage(logoImage);
+    addAndMakeVisible(logoComponent);
 
     // Apply comic book look and feel to all components
     setLookAndFeel(&comicLookAndFeel);
@@ -69,18 +75,19 @@ BasslineGeneratorEditor::BasslineGeneratorEditor(BasslineGeneratorProcessor& p)
     {
         auto& random = juce::Random::getSystemRandom();
 
-        // Randomize rhythm parameters
-        auto* stepsParam = processorRef.apvts.getParameter("steps");
+        // Clear any manual step edits when randomizing
+        processorRef.clearManualToggles();
+
+        // Get current steps to calculate hits range (but don't change steps)
+        int currentSteps = static_cast<int>(processorRef.apvts.getRawParameterValue("steps")->load());
+
+        // Randomize rhythm parameters (excluding steps/length)
         auto* hitsParam = processorRef.apvts.getParameter("hits");
         auto* rotationParam = processorRef.apvts.getParameter("rotation");
 
-        // Steps: 4-16
-        int newSteps = random.nextInt(juce::Range<int>(4, 17));
-        stepsParam->setValueNotifyingHost((newSteps - 4) / 12.0f);
-
-        // Hits: 1 to newSteps (favor 30-70% density)
-        int minHits = juce::jmax(1, newSteps / 3);
-        int maxHits = juce::jmin(newSteps, (newSteps * 2) / 3);
+        // Hits: 1 to currentSteps (favor 30-70% density)
+        int minHits = juce::jmax(1, currentSteps / 3);
+        int maxHits = juce::jmin(currentSteps, (currentSteps * 2) / 3);
         int newHits = random.nextInt(juce::Range<int>(minHits, maxHits + 1));
         hitsParam->setValueNotifyingHost((newHits - 1) / 15.0f);
 
@@ -112,6 +119,18 @@ BasslineGeneratorEditor::BasslineGeneratorEditor(BasslineGeneratorProcessor& p)
 
     // Add step sequencer grid
     addAndMakeVisible(stepGrid);
+
+    // Setup step click callback for manual editing
+    stepGrid.onStepClicked = [this](int step)
+    {
+        processorRef.toggleStep(step);
+    };
+
+    // Setup callback to check if step is manually toggled
+    stepGrid.isStepManuallyToggled = [this](int step)
+    {
+        return processorRef.isStepManuallyToggled(step);
+    };
 
     // Setup MIDI drag area
     addAndMakeVisible(midiDragArea);
@@ -151,101 +170,33 @@ void BasslineGeneratorEditor::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
 
-    // Outer decorative frame - metallic dark look
-    auto frameBounds = bounds;
+    // WHITE BACKGROUND - pop-art/comic style
+    g.setColour(juce::Colours::white);
+    g.fillAll();
 
-    // Outer black border
+    // Bold comic book frame - thick black outline
     g.setColour(juce::Colours::black);
-    g.fillRoundedRectangle(frameBounds, 8.0f);
+    g.drawRect(bounds, 8.0f);
 
-    // Metallic dark grey gradient for frame
-    auto frameGradient = juce::ColourGradient(juce::Colour(0xff2a2a2a), 0, 0,
-                                              juce::Colour(0xff1a1a1a), 0, static_cast<float>(getHeight()),
-                                              false);
-    g.setGradientFill(frameGradient);
-    g.fillRoundedRectangle(frameBounds.reduced(2), 7.0f);
+    // Inner bold outline (double-line comic style)
+    g.drawRect(bounds.reduced(12), 4.0f);
 
-    // Inner decorative ridge - top highlight
-    g.setColour(juce::Colour(0xff444444));
-    g.drawRoundedRectangle(frameBounds.reduced(6), 6.0f, 1.5f);
-
-    // Inner shadow
-    g.setColour(juce::Colours::black.withAlpha(0.6f));
-    g.drawRoundedRectangle(frameBounds.reduced(8), 5.0f, 1.0f);
-
-    // Red accent line
-    g.setColour(juce::Colour(0xffff0000).withAlpha(0.3f));
-    g.drawRoundedRectangle(frameBounds.reduced(7), 5.5f, 0.5f);
-
-    // Content area - black to dark red gradient background
-    auto contentBounds = frameBounds.reduced(10);
-    auto gradient = juce::ColourGradient(juce::Colour(0xff000000), 0, 0,
-                                         juce::Colour(0xff1a0000), 0, static_cast<float>(getHeight()),
-                                         false);
-    g.setGradientFill(gradient);
-    g.fillRoundedRectangle(contentBounds, 4.0f);
-
-    auto titleBounds = getLocalBounds().removeFromTop(50).reduced(10, 5);
-
-    // Comic book title with bold outline
-    g.setFont(juce::Font(36.0f, juce::Font::bold | juce::Font::italic));
-
-    // Black outline
-    g.setColour(juce::Colours::black);
-    for (int x = -3; x <= 3; ++x)
-        for (int y = -3; y <= 3; ++y)
-            if (x != 0 || y != 0)
-                g.drawText("MAKE BASSLINE", titleBounds.translated(x, y),
-                          juce::Justification::centred, true);
-
-    // Red fill
-    g.setColour(juce::Colour(0xffff0000));
-    g.drawText("MAKE BASSLINE", titleBounds,
-               juce::Justification::centred, true);
-
-    // Yellow highlight
-    g.setColour(juce::Colour(0xffffdd00).withAlpha(0.6f));
-    g.drawText("MAKE BASSLINE", titleBounds.translated(-1, -1),
-               juce::Justification::centred, true);
-
-    // Corner embellishments - decorative bolts/screws
-    auto drawCornerBolt = [&](float x, float y)
+    // Pop-art accent dots in corners - graffiti style
+    auto drawAccentDot = [&](float x, float y)
     {
-        juce::Rectangle<float> bolt(x - 4, y - 4, 8, 8);
+        // Yellow dot with black outline
+        g.setColour(juce::Colours::black);
+        g.fillEllipse(x - 5, y - 5, 10, 10);
 
-        // Outer ring
-        g.setColour(juce::Colour(0xff1a1a1a));
-        g.fillEllipse(bolt);
-
-        // Inner circle
-        g.setColour(juce::Colour(0xff333333));
-        g.fillEllipse(bolt.reduced(1.5f));
-
-        // Highlight
-        g.setColour(juce::Colour(0xff555555));
-        g.fillEllipse(bolt.reduced(2.5f).translated(-0.5f, -0.5f));
-
-        // Cross screw detail
-        g.setColour(juce::Colours::black.withAlpha(0.5f));
-        g.drawLine(x - 2, y, x + 2, y, 0.8f);
-        g.drawLine(x, y - 2, x, y + 2, 0.8f);
+        g.setColour(juce::Colour(0xffffdd00));
+        g.fillEllipse(x - 4, y - 4, 8, 8);
     };
 
-    float boltInset = 12.0f;
-    drawCornerBolt(boltInset, boltInset);                                    // Top-left
-    drawCornerBolt(bounds.getWidth() - boltInset, boltInset);               // Top-right
-    drawCornerBolt(boltInset, bounds.getHeight() - boltInset);              // Bottom-left
-    drawCornerBolt(bounds.getWidth() - boltInset, bounds.getHeight() - boltInset); // Bottom-right
-
-    // Resize grip indicator in bottom-right corner
-    auto gripArea = juce::Rectangle<float>(bounds.getWidth() - 20, bounds.getHeight() - 20, 15, 15);
-    g.setColour(juce::Colour(0xff333333));
-    for (int i = 0; i < 3; ++i)
-    {
-        float offset = i * 4.0f;
-        g.drawLine(gripArea.getX() + 12 - offset, gripArea.getY() + offset,
-                   gripArea.getX() + offset, gripArea.getY() + 12 - offset, 1.5f);
-    }
+    float dotInset = 20.0f;
+    drawAccentDot(dotInset, dotInset);                                      // Top-left
+    drawAccentDot(bounds.getWidth() - dotInset, dotInset);                 // Top-right
+    drawAccentDot(dotInset, bounds.getHeight() - dotInset);                // Bottom-left
+    drawAccentDot(bounds.getWidth() - dotInset, bounds.getHeight() - dotInset); // Bottom-right
 }
 
 void BasslineGeneratorEditor::resized()
@@ -256,23 +207,29 @@ void BasslineGeneratorEditor::resized()
     auto topArea = area.removeFromTop(45);
 
     // Top-right controls: Randomize, Bar selector, Export
-    auto topRightArea = topArea.removeFromRight(360);
-    midiDragArea.setBounds(topRightArea.removeFromRight(100).reduced(0, 8));
-    barLengthSelector.setBounds(topRightArea.removeFromRight(110).reduced(5, 12));
+    auto topRightArea = topArea.removeFromRight(340);
+    midiDragArea.setBounds(topRightArea.removeFromRight(110).reduced(8, 8));
+    barLengthSelector.setBounds(topRightArea.removeFromRight(100).reduced(5, 12));
     randomizeButton.setBounds(topRightArea.removeFromRight(100).reduced(5, 10));
 
     // Hide the label
     barLengthLabel.setBounds(0, 0, 0, 0);
 
-    // Large step sequencer grid - more prominence
+    // Sequencer and logo area - same height, side by side
     auto vizArea = area.removeFromTop(160);
-    stepGrid.setBounds(vizArea);
+
+    // Logo on the left, same height as sequencer
+    auto logoArea = vizArea.removeFromLeft(200);
+    logoComponent.setBounds(logoArea.reduced(8, 4));
+
+    // Sequencer on the right, takes remaining width
+    stepGrid.setBounds(vizArea.reduced(8, 4));
 
     area.removeFromTop(20);
 
     // Controls area - 5 essential controls in single row
-    int knobSize = 72;
-    int labelHeight = 22;
+    int knobSize = 90;  // Bigger knobs
+    int labelHeight = 24;
     int knobSpacing = (area.getWidth() - (5 * knobSize)) / 6; // 5 controls evenly spaced
 
     auto placeKnob = [&](juce::Slider& slider, juce::Label& label, juce::Rectangle<int>& row, int index)

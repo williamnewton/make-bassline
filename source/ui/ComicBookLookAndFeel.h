@@ -6,20 +6,23 @@ class ComicBookLookAndFeel : public juce::LookAndFeel_V4
 public:
     ComicBookLookAndFeel()
     {
-        // Yellow/Red/Black color palette
+        // Pop-art Yellow/Red/Black color palette on white
         setColour(juce::Slider::thumbColourId, juce::Colour(0xffffdd00));        // Bright Yellow
         setColour(juce::Slider::trackColourId, juce::Colour(0xffff0000));        // Red
-        setColour(juce::Slider::backgroundColourId, juce::Colour(0xff1a0000));   // Deep red-black
+        setColour(juce::Slider::backgroundColourId, juce::Colour(0xffe0e0e0));   // Light gray
         setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffffdd00)); // Yellow
         setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff000000)); // Black
+        setColour(juce::Slider::textBoxTextColourId, juce::Colours::black);      // Black textbox text
+        setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::white); // White textbox background
+        setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::black);   // Black textbox outline
 
-        setColour(juce::Label::textColourId, juce::Colour(0xffffdd00));          // Yellow text
-        setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff330000)); // Dark red
-        setColour(juce::ComboBox::outlineColourId, juce::Colour(0xffffdd00));    // Yellow outline
-        setColour(juce::ComboBox::textColourId, juce::Colour(0xffffdd00));       // Yellow text
+        setColour(juce::Label::textColourId, juce::Colours::black);              // Black text
+        setColour(juce::ComboBox::backgroundColourId, juce::Colours::white);     // White background
+        setColour(juce::ComboBox::outlineColourId, juce::Colours::black);        // Black outline
+        setColour(juce::ComboBox::textColourId, juce::Colours::black);           // Black text
 
-        setColour(juce::TextButton::buttonColourId, juce::Colour(0xffff0000));   // Red button
-        setColour(juce::TextButton::textColourOffId, juce::Colour(0xffffdd00));  // Yellow text
+        setColour(juce::TextButton::buttonColourId, juce::Colour(0xffffdd00));   // Yellow button
+        setColour(juce::TextButton::textColourOffId, juce::Colours::black);      // Black text
     }
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -43,8 +46,8 @@ public:
         g.strokePath(backgroundArc, juce::PathStrokeType(lineW + 3.0f,
                      juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        // Dark red background
-        g.setColour(juce::Colour(0xff330000));
+        // Light gray background for white UI
+        g.setColour(juce::Colour(0xffe0e0e0));
         g.strokePath(backgroundArc, juce::PathStrokeType(lineW,
                      juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
@@ -98,7 +101,7 @@ public:
         g.setColour(box.findColour(juce::ComboBox::backgroundColourId));
         g.fillRoundedRectangle(boxBounds.reduced(2).toFloat(), cornerSize);
 
-        // Yellow border
+        // Black border
         g.setColour(box.findColour(juce::ComboBox::outlineColourId));
         g.drawRoundedRectangle(boxBounds.reduced(2).toFloat(), cornerSize, 2.0f);
 
@@ -109,7 +112,7 @@ public:
         path.lineTo(arrowZone.getCentreX(), arrowZone.getCentreY() + 3.0f);
         path.lineTo(arrowZone.getRight() - 3.0f, arrowZone.getCentreY() - 2.0f);
 
-        g.setColour(juce::Colour(0xffffea00));
+        g.setColour(juce::Colours::black);
         g.strokePath(path, juce::PathStrokeType(2.0f));
     }
 
@@ -138,17 +141,63 @@ public:
 
     juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override
     {
-        return juce::Font(buttonHeight * 0.6f, juce::Font::bold);
+        // Consistent button text size
+        return juce::Font(13.0f, juce::Font::bold);
     }
 
     juce::Font getComboBoxFont(juce::ComboBox&) override
     {
-        return juce::Font(14.0f, juce::Font::bold);
+        // Match button text size
+        return juce::Font(13.0f, juce::Font::bold);
     }
 
     juce::Font getLabelFont(juce::Label&) override
     {
         return juce::Font(12.0f, juce::Font::bold);
+    }
+
+    juce::Label* createSliderTextBox(juce::Slider& slider) override
+    {
+        auto* label = juce::LookAndFeel_V4::createSliderTextBox(slider);
+
+        // Maximum readability with bold text and strong outline
+        label->setFont(juce::Font(14.0f, juce::Font::bold));
+        label->setColour(juce::Label::textColourId, juce::Colours::black);
+        label->setColour(juce::Label::backgroundColourId, juce::Colours::white);
+        label->setColour(juce::Label::outlineColourId, juce::Colours::black);
+        label->setColour(juce::Label::textWhenEditingColourId, juce::Colours::black);
+        label->setColour(juce::Label::backgroundWhenEditingColourId, juce::Colour(0xffffdd00)); // Yellow when editing
+        label->setJustificationType(juce::Justification::centred);
+        label->setBorderSize(juce::BorderSize<int>(1));
+
+        return label;
+    }
+
+    void drawLabel(juce::Graphics& g, juce::Label& label) override
+    {
+        // Draw labels with background for better readability
+        auto bounds = label.getLocalBounds().toFloat();
+
+        // If this is a parameter label (not a value display), add yellow background
+        if (!label.isBeingEdited() && label.getText().isNotEmpty())
+        {
+            // Check if it's a title label (contains letters, not just numbers)
+            bool isTitle = label.getText().containsAnyOf("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+
+            if (isTitle)
+            {
+                // Yellow background for parameter names
+                g.setColour(juce::Colour(0xffffdd00));
+                g.fillRoundedRectangle(bounds.reduced(2), 3.0f);
+
+                // Black outline
+                g.setColour(juce::Colours::black);
+                g.drawRoundedRectangle(bounds.reduced(2), 3.0f, 2.0f);
+            }
+        }
+
+        // Draw the text
+        juce::LookAndFeel_V4::drawLabel(g, label);
     }
 
 private:
