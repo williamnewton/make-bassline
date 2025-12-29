@@ -1,55 +1,166 @@
-![PAMPLEJUCE](assets/images/pamplejuce.png)
-[![](https://github.com/sudara/pamplejuce/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/sudara/pamplejuce/actions)
+# Make Bassline
 
-Pamplejuce is a ~~template~~ lifestyle for creating and building JUCE plugins in 2025.
+**A generative bassline MIDI FX plugin for Logic Pro and DAWs**
 
-Out-of-the-box, it:
+Make Bassline is an algorithmic MIDI generator that creates instant bassline patterns using Euclidean rhythm generation and scale-quantized pitch. Perfect for electronic music production, live performance, and creative inspiration.
 
-1. Runs C++23
-2. Uses JUCE 8.x as a git submodule (tracking develop).
-3. Uses CPM for dependency management.
-3. Relies on CMake 3.25 and higher for cross-platform building.
-4. Has [Catch2](https://github.com/catchorg/Catch2) v3.7.1 for the test framework and runner.
-5. Includes a `Tests` target and a `Benchmarks` target with examples to get started quickly.
-6. Has [Melatonin Inspector](https://github.com/sudara/melatonin_inspector) installed as a JUCE module to help relieve headaches when building plugin UI.
+![Make Bassline Plugin](assets/images/make-bassline-screenshot.png)
 
-It also has integration with GitHub Actions, specifically:
+## Features
 
-1. Building and testing cross-platform (linux, macOS, Windows) binaries
-2. Running tests and benchmarks in CI
-3. Running [pluginval](http://github.com/tracktion/pluginval) 1.x against the binaries for plugin validation
-4. Config for [installing Intel IPP](https://www.intel.com/content/www/us/en/developer/tools/oneapi/ipp.html)
-5. [Code signing and notarization on macOS](https://melatonin.dev/blog/how-to-code-sign-and-notarize-macos-audio-plugins-in-ci/)
-6. [Windows code signing via Azure Trusted Signing](https://melatonin.dev/blog/code-signing-on-windows-with-azure-trusted-signing/)
+### 🎵 Euclidean Rhythm Generation
+- Uses Bjorklund's algorithm to create mathematically interesting rhythmic patterns
+- Adjust **Steps** (4-16), **Hits** (1-16), and **Rotation** for infinite pattern variations
+- Real-time visual feedback with step sequencer grid
 
-It also contains:
+### 🎹 Musical Pitch Control
+- **Root Note** selection (C1-C3) to set your key
+- **5 Scale Types**: Minor Pentatonic, Major, Minor, Dorian, Chromatic
+- Intelligent pitch generation with 70% probability of root note on first step
+- Deterministic randomization for reproducible patterns
 
-1. A `.gitignore` for all platforms.
-2. A `.clang-format` file for keeping code tidy.
-3. A `VERSION` file that will propagate through JUCE and your app.
-4. A ton of useful comments and options around the CMake config.
+### 🎛️ Groove & Feel
+- **Swing** (0-75%) for that classic shuffle feel
+- **Velocity** control (1-127) for dynamics
+- Clean, focused interface with 7 essential controls
 
-## How does this all work at a high level?
+### 📤 MIDI Export
+- Drag-and-drop MIDI patterns directly into your DAW
+- Export 1, 2, 4, or 8 bar patterns
+- Includes tempo and time signature metadata
 
-Check out the [official Pamplejuce documentation](https://melatonin.dev/manuals/pamplejuce/how-does-this-all-work/).
+### 🎨 Comic-Book UI
+- Bold yellow/red/black color scheme
+- Inspired by retro comic book aesthetics
+- Custom JUCE LookAndFeel with thick outlines and gradients
 
-[![Arc - 2024-10-01 51@2x](https://github.com/user-attachments/assets/01d19d2d-fbac-481f-8cec-e9325b2abe57)](https://melatonin.dev/manuals/pamplejuce/how-does-this-all-work/)
+## Installation
 
-## Setting up for YOUR project
+### macOS
+The plugin is automatically installed to:
+- **Audio Unit**: `~/Library/Audio/Plug-Ins/Components/Make Bassline.component`
+- **VST3**: `~/Library/Audio/Plug-Ins/VST3/Make Bassline.vst3`
+- **CLAP**: `~/Library/Audio/Plug-Ins/CLAP/Make Bassline.clap`
 
-This is a template repo!
+### Standalone App
+Launch the standalone version from:
+`build/MakeBassline_artefacts/Release/Standalone/Make Bassline.app`
 
-That means you can click "[Use this template](https://github.com/sudara/pamplejuce/generate)" here or at the top of the page to get your own copy (not fork) of the repo. Then you can make it private or keep it public, up to you.
+## Building from Source
 
-Then check out the [documentation](https://melatonin.dev/manuals/pamplejuce/setting-your-project-up/) so you know what to tweak. 
+### Prerequisites
+- CMake 3.25 or higher
+- Xcode (macOS)
+- JUCE 7+ (included as submodule)
 
-> [!NOTE]
-> Tests will immediately run and fail (go red) until you [set up code signing](https://melatonin.dev/manuals/pamplejuce/getting-started/code-signing/).
+### Build Steps
+```bash
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/make-bassline.git
+cd make-bassline
 
-## Having Issues?
+# Initialize JUCE submodule
+git submodule update --init --recursive
 
-Thanks to everyone who has contributed to the repository. 
+# Build Release version
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
 
-This repository covers a _lot_ of ground. JUCE itself has a lot of surface area. It's a group effort to maintain the garden and keep things nice!
+### Validate Audio Unit
+```bash
+auval -v aumi MkBl MkBs
+```
 
-If something isn't just working out of the box — *it's probably not just you* — others are running into the problem, too, I promise. Check out [the official docs](https://melatonin.dev/manuals/pamplejuce), then please do [open an issue](https://github.com/sudara/pamplejuce/issues/new)!
+## Usage
+
+### In Your DAW
+1. Insert **Make Bassline** as a MIDI FX on a track
+2. Route the output to your favorite bass synth
+3. Press play and adjust the parameters in real-time
+4. All parameters are automatable via your DAW
+
+### Controls
+
+| Control | Range | Description |
+|---------|-------|-------------|
+| **Steps** | 4-16 | Total steps in the pattern |
+| **Hits** | 1-16 | Number of active notes |
+| **Rotation** | 0-15 | Shifts the pattern timing |
+| **Root Note** | C1-C3 | Sets the key center |
+| **Scale** | 5 types | Musical scale for pitch |
+| **Swing** | 0-75% | Groove feel (delays even steps) |
+| **Velocity** | 1-127 | Note dynamics |
+
+### Hidden Advanced Parameters
+These parameters work under the hood with sensible defaults:
+- Octave Range (default: 1)
+- Note Length (default: 50%)
+- Humanize (default: 0)
+- Random Seed (default: 42)
+
+## Technical Details
+
+### Plugin Type
+- **Audio Unit MIDI Effect** (aumi)
+- No audio processing - generates MIDI only
+- Syncs to host DAW tempo and transport
+
+### Architecture
+- **Euclidean Rhythm**: Bjorklund's algorithm implementation
+- **Pitch Generation**: Deterministic random with scale quantization
+- **Timing**: Sample-accurate MIDI generation with swing
+- **UI Sync**: Lock-free atomic variables for thread safety
+
+### File Structure
+```
+source/
+├── PluginProcessor.h/cpp        # Main MIDI generation
+├── PluginEditor.h/cpp           # UI and controls
+├── generator/
+│   ├── EuclideanRhythm.h       # Bjorklund's algorithm
+│   ├── PitchGenerator.h        # Scale-based pitch
+│   └── PatternState.h          # Thread-safe state
+├── ui/
+│   ├── ComicBookLookAndFeel.h  # Custom styling
+│   ├── StepSequencerGrid.h     # Pattern visualizer
+│   └── MidiDragComponent.h     # MIDI export
+└── utils/
+    └── MidiPatternExporter.h   # File generation
+```
+
+## Development
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development log and changelog.
+
+### Running Tests
+```bash
+cmake --build build --target Tests
+./build/MakeBassline_artefacts/Release/Tests
+```
+
+### Code Formatting
+```bash
+clang-format -i source/**/*.{h,cpp}
+```
+
+## Credits
+
+Built with:
+- [JUCE](https://juce.com/) - Audio plugin framework
+- [Pamplejuce](https://github.com/sudara/pamplejuce) - CMake template
+- [Melatonin Inspector](https://github.com/sudara/melatonin_inspector) - UI debugging
+
+Inspired by Euclidean rhythm research by Godfried Toussaint.
+
+## License
+
+See [LICENSE](LICENSE) for details.
+
+## Version
+
+Current version: **0.0.1** (Production Release)
+
+---
+
+**Make Bassline** - Instant algorithmic basslines for your productions
