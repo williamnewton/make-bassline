@@ -1,186 +1,257 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <random>
 
 //==============================================================================
-PluginProcessor::PluginProcessor()
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       )
+BasslineGeneratorProcessor::BasslineGeneratorProcessor()
+    : AudioProcessor(BusesProperties()
+#if !JucePlugin_IsMidiEffect
+#if !JucePlugin_IsSynth
+                         .withInput("Input", juce::AudioChannelSet::stereo(), true)
+#endif
+                         .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+                         ),
+      apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
 }
 
-PluginProcessor::~PluginProcessor()
+BasslineGeneratorProcessor::~BasslineGeneratorProcessor()
 {
-}
-
-//==============================================================================
-const juce::String PluginProcessor::getName() const
-{
-    return JucePlugin_Name;
-}
-
-bool PluginProcessor::acceptsMidi() const
-{
-   #if JucePlugin_WantsMidiInput
-    return true;
-   #else
-    return false;
-   #endif
-}
-
-bool PluginProcessor::producesMidi() const
-{
-   #if JucePlugin_ProducesMidiOutput
-    return true;
-   #else
-    return false;
-   #endif
-}
-
-bool PluginProcessor::isMidiEffect() const
-{
-   #if JucePlugin_IsMidiEffect
-    return true;
-   #else
-    return false;
-   #endif
-}
-
-double PluginProcessor::getTailLengthSeconds() const
-{
-    return 0.0;
-}
-
-int PluginProcessor::getNumPrograms()
-{
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
-}
-
-int PluginProcessor::getCurrentProgram()
-{
-    return 0;
-}
-
-void PluginProcessor::setCurrentProgram (int index)
-{
-    juce::ignoreUnused (index);
-}
-
-const juce::String PluginProcessor::getProgramName (int index)
-{
-    juce::ignoreUnused (index);
-    return {};
-}
-
-void PluginProcessor::changeProgramName (int index, const juce::String& newName)
-{
-    juce::ignoreUnused (index, newName);
 }
 
 //==============================================================================
-void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+juce::AudioProcessorValueTreeState::ParameterLayout
+BasslineGeneratorProcessor::createParameterLayout()
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
-    juce::ignoreUnused (sampleRate, samplesPerBlock);
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+
+    // Euclidean rhythm parameters
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        "steps", "Steps", 4, 16, 8));
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        "hits", "Hits", 1, 16, 3));
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        "rotation", "Rotation", 0, 15, 0));
+
+    // Pitch parameters
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        "rootNote", "Root Note", 24, 48, 36)); // C1 to C3, default C2
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        "scale", "Scale",
+        juce::StringArray{"Minor Pentatonic", "Major", "Minor", "Dorian", "Chromatic"},
+        0));
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        "octaveRange", "Octave Range", 1, 2, 1));
+
+    // Note parameters
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "noteLength", "Note Length", 0.1f, 1.0f, 0.5f)); // Fraction of step
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        "velocity", "Velocity", 1, 127, 100));
+
+    // Groove parameters
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "swing", "Swing", 0.0f, 0.75f, 0.0f)); // 0 = no swing, 0.75 = max swing
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        "humanize", "Humanize", 0, 30, 0)); // Velocity randomization amount
+
+    // Pattern parameters
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        "seed", "Random Seed", 0, 9999, 42));
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        "regenerate", "Regenerate", false));
+
+    return {params.begin(), params.end()};
 }
 
-void PluginProcessor::releaseResources()
+//==============================================================================
+void BasslineGeneratorProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
+{
+    currentSampleRate = sampleRate;
+    lastPpqPosition = -1;
+    currentStep = 0;
+    activeNote = -1;
+}
+
+void BasslineGeneratorProcessor::releaseResources()
 {
     // When playback stops, you can use this as an opportunity to free up any
     // spare memory, etc.
 }
 
-bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+void BasslineGeneratorProcessor::processBlock(juce::AudioBuffer<float>& buffer,
+                                               juce::MidiBuffer& midiMessages)
 {
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
-    return true;
-  #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
-        return false;
+    // Clear any incoming MIDI (we're generating, not processing)
+    midiMessages.clear();
 
-    // This checks if the input layout matches the output layout
-   #if ! JucePlugin_IsSynth
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
-        return false;
-   #endif
+    // Get host playhead info
+    auto* playHead = getPlayHead();
+    if (playHead == nullptr)
+        return;
 
-    return true;
-  #endif
-}
+    auto posInfo = playHead->getPosition();
+    if (!posInfo.hasValue())
+        return;
 
-void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer,
-                                              juce::MidiBuffer& midiMessages)
-{
-    juce::ignoreUnused (midiMessages);
-
-    juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
-
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    // Only generate when playing
+    if (!posInfo->getIsPlaying())
     {
-        auto* channelData = buffer.getWritePointer (channel);
-        juce::ignoreUnused (channelData);
-        // ..do something to the data...
+        // Send note-off if we were playing a note
+        if (activeNote >= 0)
+        {
+            midiMessages.addEvent(juce::MidiMessage::noteOff(1, activeNote), 0);
+            activeNote = -1;
+        }
+        lastPpqPosition = -1;
+        patternState.isPlaying.store(false);
+        return;
+    }
+
+    patternState.isPlaying.store(true);
+
+    // Get timing info
+    auto bpm = posInfo->getBpm().orFallback(120.0);
+    auto ppqPosition = posInfo->getPpqPosition().orFallback(0.0);
+    auto timeSignature = posInfo->getTimeSignature().orFallback(
+        juce::AudioPlayHead::TimeSignature{4, 4});
+
+    // Calculate timing values
+    int numSteps = apvts.getRawParameterValue("steps")->load();
+    double beatsPerBar = timeSignature.numerator;
+    double ppqPerStep = beatsPerBar / numSteps; // Subdivide bar into steps
+    double samplesPerBeat = (currentSampleRate * 60.0) / bpm;
+    double samplesPerStep = samplesPerBeat * ppqPerStep;
+
+    // Get swing amount (0.0 to 0.75)
+    float swingAmount = apvts.getRawParameterValue("swing")->load();
+
+    // Get note length
+    float noteLengthFraction = apvts.getRawParameterValue("noteLength")->load();
+    noteDurationSamples = static_cast<int>(samplesPerStep * noteLengthFraction);
+
+    // Process each sample in the buffer
+    int numSamples = buffer.getNumSamples();
+
+    for (int sample = 0; sample < numSamples; ++sample)
+    {
+        // Calculate PPQ at this sample
+        double samplePpq = ppqPosition + (sample * bpm) / (currentSampleRate * 60.0);
+
+        // Determine which step we're on (accounting for swing)
+        double barPosition = std::fmod(samplePpq, beatsPerBar);
+
+        // Apply swing: delay even steps
+        double adjustedBarPosition = barPosition;
+        if (swingAmount > 0.0f)
+        {
+            double stepProgress = barPosition / ppqPerStep;
+            int baseStep = static_cast<int>(stepProgress);
+            double fractionalStep = stepProgress - baseStep;
+
+            // If we're on an even step, delay it
+            if (baseStep % 2 == 1)
+            {
+                adjustedBarPosition = barPosition + (ppqPerStep * swingAmount * fractionalStep);
+            }
+        }
+
+        int step = static_cast<int>(adjustedBarPosition / ppqPerStep) % numSteps;
+
+        // Detect step change (new step triggered)
+        if (step != currentStep)
+        {
+            currentStep = step;
+            patternState.currentStep.store(step);
+
+            // Check if this step should trigger a note (Euclidean pattern)
+            int hits = apvts.getRawParameterValue("hits")->load();
+            int rotation = apvts.getRawParameterValue("rotation")->load();
+
+            bool shouldTrigger = euclidean.shouldTrigger(step, numSteps, hits, rotation);
+
+            if (shouldTrigger)
+            {
+                // Send note-off for previous note if active
+                if (activeNote >= 0)
+                {
+                    midiMessages.addEvent(
+                        juce::MidiMessage::noteOff(1, activeNote), sample);
+                }
+
+                // Generate pitch
+                int rootNote = apvts.getRawParameterValue("rootNote")->load();
+                int scaleIndex = apvts.getRawParameterValue("scale")->load();
+                int octaveRange = apvts.getRawParameterValue("octaveRange")->load();
+                int seed = apvts.getRawParameterValue("seed")->load();
+
+                int pitch = pitchGen.generatePitch(
+                    rootNote, scaleIndex, octaveRange, step, seed);
+
+                // Apply velocity with humanization
+                int baseVelocity = apvts.getRawParameterValue("velocity")->load();
+                int humanizeAmount = apvts.getRawParameterValue("humanize")->load();
+
+                int velocity = baseVelocity;
+                if (humanizeAmount > 0)
+                {
+                    // Use seed + step for deterministic but varied humanization
+                    std::mt19937 rng(seed + step * 251);
+                    std::uniform_int_distribution<int> velDist(-humanizeAmount, humanizeAmount);
+                    velocity = juce::jlimit(1, 127, baseVelocity + velDist(rng));
+                }
+
+                // Send note-on
+                midiMessages.addEvent(
+                    juce::MidiMessage::noteOn(1, pitch, (juce::uint8)velocity),
+                    sample);
+
+                activeNote = pitch;
+                samplesUntilNoteOff = noteDurationSamples;
+            }
+        }
+
+        // Handle note-off timing
+        if (activeNote >= 0)
+        {
+            samplesUntilNoteOff--;
+            if (samplesUntilNoteOff <= 0)
+            {
+                midiMessages.addEvent(
+                    juce::MidiMessage::noteOff(1, activeNote), sample);
+                activeNote = -1;
+            }
+        }
     }
 }
 
 //==============================================================================
-bool PluginProcessor::hasEditor() const
+juce::AudioProcessorEditor* BasslineGeneratorProcessor::createEditor()
 {
-    return true; // (change this to false if you choose to not supply an editor)
-}
-
-juce::AudioProcessorEditor* PluginProcessor::createEditor()
-{
-    return new PluginEditor (*this);
+    return new BasslineGeneratorEditor(*this);
 }
 
 //==============================================================================
-void PluginProcessor::getStateInformation (juce::MemoryBlock& destData)
+void BasslineGeneratorProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
-    juce::ignoreUnused (destData);
+    auto state = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> xml(state.createXml());
+    copyXmlToBinary(*xml, destData);
 }
 
-void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
+void BasslineGeneratorProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
-    juce::ignoreUnused (data, sizeInBytes);
+    std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
+    if (xml != nullptr && xml->hasTagName(apvts.state.getType()))
+    {
+        apvts.replaceState(juce::ValueTree::fromXml(*xml));
+    }
 }
 
 //==============================================================================
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new PluginProcessor();
+    return new BasslineGeneratorProcessor();
 }

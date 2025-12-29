@@ -1,43 +1,60 @@
 #pragma once
-
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "generator/EuclideanRhythm.h"
+#include "generator/PitchGenerator.h"
+#include "generator/PatternState.h"
 
-#if (MSVC)
-#include "ipps.h"
-#endif
-
-class PluginProcessor : public juce::AudioProcessor
+class BasslineGeneratorProcessor : public juce::AudioProcessor
 {
 public:
-    PluginProcessor();
-    ~PluginProcessor() override;
+    BasslineGeneratorProcessor();
+    ~BasslineGeneratorProcessor() override;
 
-    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
-
-    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-
-    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
     juce::AudioProcessorEditor* createEditor() override;
-    bool hasEditor() const override;
+    bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override;
+    const juce::String getName() const override { return JucePlugin_Name; }
 
-    bool acceptsMidi() const override;
-    bool producesMidi() const override;
-    bool isMidiEffect() const override;
-    double getTailLengthSeconds() const override;
+    bool acceptsMidi() const override { return true; }
+    bool producesMidi() const override { return true; }
+    bool isMidiEffect() const override { return true; }
+    double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override;
-    int getCurrentProgram() override;
-    void setCurrentProgram (int index) override;
-    const juce::String getProgramName (int index) override;
-    void changeProgramName (int index, const juce::String& newName) override;
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram(int) override {}
+    const juce::String getProgramName(int) override { return {}; }
+    void changeProgramName(int, const juce::String&) override {}
 
-    void getStateInformation (juce::MemoryBlock& destData) override;
-    void setStateInformation (const void* data, int sizeInBytes) override;
+    void getStateInformation(juce::MemoryBlock& destData) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
+
+    juce::AudioProcessorValueTreeState apvts;
+
+    // Pattern state for UI access (lock-free)
+    PatternState patternState;
 
 private:
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    // Generator components
+    EuclideanRhythm euclidean;
+    PitchGenerator pitchGen;
+
+    // Timing state
+    double currentSampleRate = 44100.0;
+    double ppqPerSample = 0.0;
+    int64_t lastPpqPosition = -1;
+    int currentStep = 0;
+
+    // Note tracking for note-offs
+    int activeNote = -1;
+    int noteDurationSamples = 0;
+    int samplesUntilNoteOff = 0;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BasslineGeneratorProcessor)
 };
