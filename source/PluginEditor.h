@@ -2,7 +2,6 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
-#include "ui/CircularVisualizer.h"
 #include "ui/StepSequencerGrid.h"
 #include "ui/MidiDragComponent.h"
 #include "ui/ComicBookLookAndFeel.h"
@@ -23,30 +22,24 @@ private:
 
     BasslineGeneratorProcessor& processorRef;
 
-    // Rhythm controls
-    juce::Slider stepsSlider, hitsSlider, rotationSlider;
-    juce::Label stepsLabel, hitsLabel, rotationLabel;
+    // Essential controls (5 only)
+    juce::Slider stepsSlider, densitySlider, swingSlider, rootNoteSlider;
+    juce::Label stepsLabel, densityLabel, swingLabel, rootNoteLabel;
 
-    // Pitch controls
-    juce::Slider rootNoteSlider, octaveRangeSlider;
     juce::ComboBox scaleSelector;
-    juce::Label rootNoteLabel, scaleLabel, octaveLabel;
+    juce::Label scaleLabel;
 
-    // Note controls
-    juce::Slider noteLengthSlider, velocitySlider;
-    juce::Label noteLengthLabel, velocityLabel;
-
-    // Groove controls
-    juce::Slider swingSlider, humanizeSlider;
-    juce::Label swingLabel, humanizeLabel;
-
-    // Pattern display
-    juce::Slider seedSlider;
-    juce::Label seedLabel;
+    // Hidden advanced controls (still functional, not visible)
+    juce::Slider rotationSlider, octaveRangeSlider, noteLengthSlider;
+    juce::Slider velocitySlider, humanizeSlider, seedSlider;
+    juce::Label rotationLabel, octaveLabel, noteLengthLabel;
+    juce::Label velocityLabel, humanizeLabel, seedLabel;
     juce::TextButton regenerateButton;
 
-    // Visualizers
-    CircularVisualizer circularViz;
+    // Randomization button
+    juce::TextButton randomizeButton;
+
+    // Visualizer - big step grid
     StepSequencerGrid stepGrid;
 
     // MIDI Export

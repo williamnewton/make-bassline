@@ -81,12 +81,9 @@ public:
             g.drawText(juce::String(i + 1), stepBounds, juce::Justification::centred);
         }
 
-        // Bold comic border
+        // Subtle black border only
         g.setColour(juce::Colours::black);
-        g.drawRoundedRectangle(bounds.toFloat(), 8.0f, 3.0f);
-
-        g.setColour(juce::Colour(0xffffdd00));
-        g.drawRoundedRectangle(bounds.toFloat().reduced(2), 8.0f, 2.0f);
+        g.drawRoundedRectangle(bounds.toFloat(), 8.0f, 2.0f);
     }
 
     void setPattern(int steps, int hits, int rot)

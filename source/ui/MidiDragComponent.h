@@ -15,37 +15,22 @@ public:
     {
         auto bounds = getLocalBounds().toFloat();
 
-        // Comic book style - black outline
+        // Simple black outline
         g.setColour(juce::Colours::black);
-        g.fillRoundedRectangle(bounds, 8.0f);
+        g.fillRoundedRectangle(bounds, 4.0f);
 
-        // Dark red background
-        g.setColour(juce::Colour(0xff1a0000));
-        g.fillRoundedRectangle(bounds.reduced(3), 8.0f);
+        // Dark background
+        g.setColour(juce::Colour(0xff1a1a1a));
+        g.fillRoundedRectangle(bounds.reduced(2), 4.0f);
 
         // Yellow border
         g.setColour(juce::Colour(0xffffdd00));
-        g.drawRoundedRectangle(bounds.reduced(3), 8.0f, 2.5f);
+        g.drawRoundedRectangle(bounds.reduced(2), 4.0f, 1.5f);
 
-        // Icon area with musical note
-        auto iconArea = bounds.reduced(10);
-        iconArea.removeFromRight(bounds.getWidth() * 0.6f);
+        // Text - simple and clean
+        g.setFont(juce::Font(12.0f, juce::Font::bold));
         g.setColour(juce::Colour(0xffffdd00));
-        g.setFont(juce::Font(32.0f, juce::Font::bold));
-        g.drawText("\u266B", iconArea.toNearestInt(), juce::Justification::centred);
-
-        // Text area
-        auto textArea = bounds.reduced(10);
-        textArea.removeFromLeft(bounds.getWidth() * 0.25f);
-
-        g.setFont(juce::Font(13.0f, juce::Font::bold));
-        g.setColour(juce::Colour(0xffffdd00));
-        g.drawText("DRAG MIDI", textArea.removeFromTop(18).toNearestInt(), juce::Justification::centredLeft);
-
-        g.setFont(juce::Font(11.0f, juce::Font::plain));
-        g.setColour(juce::Colour(0xffff8800));
-        juce::String info = juce::String(numBars) + " bar" + (numBars > 1 ? "s" : "");
-        g.drawText(info, textArea.toNearestInt(), juce::Justification::centredLeft);
+        g.drawText("Export MIDI", bounds, juce::Justification::centred);
     }
 
     void mouseDrag(const juce::MouseEvent& event) override
