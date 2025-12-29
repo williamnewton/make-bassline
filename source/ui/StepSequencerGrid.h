@@ -15,9 +15,9 @@ public:
     {
         auto bounds = getLocalBounds().reduced(2);
 
-        // Background
-        g.setColour(juce::Colours::black);
-        g.fillRect(bounds);
+        // Comic book background
+        g.setColour(juce::Colour(0xff1a1a2e));
+        g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
 
         if (numSteps <= 0)
             return;
@@ -31,9 +31,9 @@ public:
             auto stepBounds = juce::Rectangle<int>(
                 bounds.getX() + i * stepWidth,
                 bounds.getY(),
-                stepWidth - 2,
+                stepWidth - 3,
                 stepHeight
-            );
+            ).reduced(4);
 
             // Determine if this step has a hit
             bool hasHit = euclidean.shouldTrigger(i, numSteps, numHits, rotation);
@@ -41,32 +41,52 @@ public:
             // Color based on state
             if (i == currentStep && isPlaying)
             {
-                // Current playing step
-                g.setColour(hasHit ? juce::Colours::lime : juce::Colours::yellow);
-                g.fillRect(stepBounds);
+                // Black comic outline
+                g.setColour(juce::Colours::black);
+                g.fillRoundedRectangle(stepBounds.toFloat().expanded(2), 4.0f);
+
+                // Current playing step - bright yellow/magenta
+                g.setColour(hasHit ? juce::Colour(0xffffea00) : juce::Colour(0xffff00ff));
+                g.fillRoundedRectangle(stepBounds.toFloat(), 4.0f);
+
+                // White highlight
+                g.setColour(juce::Colours::white.withAlpha(0.4f));
+                g.fillRoundedRectangle(stepBounds.toFloat().removeFromTop(stepBounds.getHeight() * 0.3f), 4.0f);
             }
             else if (hasHit)
             {
-                // Step with a hit
-                g.setColour(juce::Colours::lightblue);
-                g.fillRect(stepBounds);
+                // Step with a hit - cyan
+                g.setColour(juce::Colours::black);
+                g.fillRoundedRectangle(stepBounds.toFloat().expanded(2), 4.0f);
+
+                g.setColour(juce::Colour(0xff00ffff));
+                g.fillRoundedRectangle(stepBounds.toFloat(), 4.0f);
+
+                g.setColour(juce::Colours::white.withAlpha(0.3f));
+                g.fillRoundedRectangle(stepBounds.toFloat().removeFromTop(stepBounds.getHeight() * 0.3f), 4.0f);
             }
             else
             {
                 // Empty step
-                g.setColour(juce::Colours::darkgrey);
-                g.drawRect(stepBounds, 1);
+                g.setColour(juce::Colour(0xff16213e));
+                g.fillRoundedRectangle(stepBounds.toFloat(), 4.0f);
+
+                g.setColour(juce::Colour(0xff0f3460));
+                g.drawRoundedRectangle(stepBounds.toFloat(), 4.0f, 1.5f);
             }
 
-            // Draw step number
-            g.setColour(juce::Colours::white.withAlpha(0.5f));
-            g.setFont(10.0f);
+            // Draw step number with bold font
+            g.setColour(juce::Colours::white.withAlpha(hasHit ? 0.9f : 0.5f));
+            g.setFont(juce::Font(10.0f, juce::Font::bold));
             g.drawText(juce::String(i + 1), stepBounds, juce::Justification::centred);
         }
 
-        // Border
-        g.setColour(juce::Colours::grey);
-        g.drawRect(bounds, 2);
+        // Bold comic border
+        g.setColour(juce::Colours::black);
+        g.drawRoundedRectangle(bounds.toFloat(), 8.0f, 3.0f);
+
+        g.setColour(juce::Colour(0xffffea00));
+        g.drawRoundedRectangle(bounds.toFloat().reduced(2), 8.0f, 2.0f);
     }
 
     void setPattern(int steps, int hits, int rot)

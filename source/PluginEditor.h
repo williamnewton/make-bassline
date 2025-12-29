@@ -4,9 +4,12 @@
 #include "PluginProcessor.h"
 #include "ui/CircularVisualizer.h"
 #include "ui/StepSequencerGrid.h"
+#include "ui/MidiDragComponent.h"
+#include "ui/ComicBookLookAndFeel.h"
 
 class BasslineGeneratorEditor : public juce::AudioProcessorEditor,
-                                 private juce::Timer
+                                 private juce::Timer,
+                                 public juce::DragAndDropContainer
 {
 public:
     explicit BasslineGeneratorEditor(BasslineGeneratorProcessor&);
@@ -46,9 +49,19 @@ private:
     CircularVisualizer circularViz;
     StepSequencerGrid stepGrid;
 
+    // MIDI Export
+    MidiDragComponent midiDragArea;
+    juce::ComboBox barLengthSelector;
+    juce::Label barLengthLabel;
+
     // Attachments
     std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>> sliderAttachments;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
+
+    // Custom look and feel
+    ComicBookLookAndFeel comicLookAndFeel;
+
+    juce::MemoryBlock createMidiPattern();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BasslineGeneratorEditor)
 };

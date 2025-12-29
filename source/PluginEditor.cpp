@@ -1,9 +1,13 @@
 #include "PluginEditor.h"
+#include "utils/MidiPatternExporter.h"
 
 BasslineGeneratorEditor::BasslineGeneratorEditor(BasslineGeneratorProcessor& p)
     : AudioProcessorEditor(&p), processorRef(p)
 {
-    setSize(700, 630);
+    setSize(850, 620);
+
+    // Apply comic book look and feel to all components
+    setLookAndFeel(&comicLookAndFeel);
 
     // Setup sliders with labels
     auto setupSlider = [this](juce::Slider& slider, juce::Label& label,
@@ -57,82 +61,139 @@ BasslineGeneratorEditor::BasslineGeneratorEditor(BasslineGeneratorProcessor& p)
     addAndMakeVisible(circularViz);
     addAndMakeVisible(stepGrid);
 
+    // Setup MIDI drag area
+    addAndMakeVisible(midiDragArea);
+    midiDragArea.onCreatePattern = [this]() { return createMidiPattern(); };
+
+    // Setup bar length selector
+    barLengthSelector.addItemList({"1 Bar", "2 Bars", "4 Bars", "8 Bars"}, 1);
+    barLengthSelector.setSelectedId(1, juce::dontSendNotification);
+    barLengthSelector.onChange = [this]()
+    {
+        int bars = 1;
+        switch (barLengthSelector.getSelectedId())
+        {
+            case 1: bars = 1; break;
+            case 2: bars = 2; break;
+            case 3: bars = 4; break;
+            case 4: bars = 8; break;
+        }
+        midiDragArea.setNumBars(bars);
+    };
+    addAndMakeVisible(barLengthSelector);
+
+    barLengthLabel.setText("Export", juce::dontSendNotification);
+    barLengthLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(barLengthLabel);
+
     startTimerHz(30); // For UI updates
 }
 
 BasslineGeneratorEditor::~BasslineGeneratorEditor()
 {
+    setLookAndFeel(nullptr);
     stopTimer();
 }
 
 void BasslineGeneratorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::darkgrey);
+    // Comic book gradient background
+    auto gradient = juce::ColourGradient(juce::Colour(0xff0f3460), 0, 0,
+                                         juce::Colour(0xff1a1a2e), 0, static_cast<float>(getHeight()),
+                                         false);
+    g.setGradientFill(gradient);
+    g.fillAll();
 
-    g.setColour(juce::Colours::white);
-    g.setFont(20.0f);
-    g.drawText("Bassline Generator", getLocalBounds().removeFromTop(40),
-               juce::Justification::centred);
+    auto titleBounds = getLocalBounds().removeFromTop(50).reduced(10, 5);
+
+    // Comic book title with bold outline
+    g.setFont(juce::Font(32.0f, juce::Font::bold | juce::Font::italic));
+
+    // Black outline
+    g.setColour(juce::Colours::black);
+    for (int x = -2; x <= 2; ++x)
+        for (int y = -2; y <= 2; ++y)
+            g.drawText("BASSLINE GENERATOR", titleBounds.translated(x, y),
+                      juce::Justification::centred, true);
+
+    // Yellow fill
+    g.setColour(juce::Colour(0xffffea00));
+    g.drawText("BASSLINE GENERATOR", titleBounds,
+               juce::Justification::centred, true);
+
+    // White highlight
+    g.setColour(juce::Colours::white.withAlpha(0.4f));
+    g.drawText("BASSLINE GENERATOR", titleBounds.translated(-1, -1),
+               juce::Justification::centred, true);
 }
 
 void BasslineGeneratorEditor::resized()
 {
-    auto area = getLocalBounds().reduced(10);
-    area.removeFromTop(40); // Title space
+    auto area = getLocalBounds().reduced(12);
+    area.removeFromTop(50); // Title space
 
-    // Top section: Visualizers side by side
-    auto vizArea = area.removeFromTop(180);
-    int vizSize = 160;
+    // Step sequencer at top (full width)
+    auto stepArea = area.removeFromTop(100);
+    stepGrid.setBounds(stepArea);
 
-    circularViz.setBounds(vizArea.removeFromLeft(vizSize).reduced(5));
-    stepGrid.setBounds(vizArea.reduced(5));
+    area.removeFromTop(15);
 
-    area.removeFromTop(10);
+    // Two rows of perfectly aligned knobs
+    int knobSize = 90;
+    int labelHeight = 22;
+    int knobSpacing = (area.getWidth() - (6 * knobSize)) / 7; // Space evenly across width
 
-    int knobSize = 70;
-    int labelHeight = 18;
-
-    // Row 1: Rhythm controls
-    auto row1 = area.removeFromTop(knobSize + labelHeight);
-    auto placeKnob = [&](juce::Slider& slider, juce::Label& label, juce::Rectangle<int>& row)
+    auto placeKnob = [&](juce::Slider& slider, juce::Label& label, juce::Rectangle<int>& row, int index)
     {
-        auto knobArea = row.removeFromLeft(knobSize + 10);
+        int xPos = knobSpacing + index * (knobSize + knobSpacing);
+        auto knobArea = juce::Rectangle<int>(row.getX() + xPos, row.getY(), knobSize, row.getHeight());
         label.setBounds(knobArea.removeFromTop(labelHeight));
-        slider.setBounds(knobArea);
+        slider.setBounds(knobArea.removeFromBottom(knobSize));
     };
 
-    placeKnob(stepsSlider, stepsLabel, row1);
-    placeKnob(hitsSlider, hitsLabel, row1);
-    placeKnob(rotationSlider, rotationLabel, row1);
+    // ROW 1: Euclidean Rhythm + Pitch
+    auto row1 = area.removeFromTop(knobSize + labelHeight);
+    placeKnob(stepsSlider, stepsLabel, row1, 0);
+    placeKnob(hitsSlider, hitsLabel, row1, 1);
+    placeKnob(rotationSlider, rotationLabel, row1, 2);
+    placeKnob(rootNoteSlider, rootNoteLabel, row1, 3);
 
-    area.removeFromTop(10);
-
-    // Row 2: Pitch controls
-    auto row2 = area.removeFromTop(knobSize + labelHeight);
-    placeKnob(rootNoteSlider, rootNoteLabel, row2);
-
-    auto scaleArea = row2.removeFromLeft(90);
+    // Scale selector (special case)
+    int xPos = knobSpacing + 4 * (knobSize + knobSpacing);
+    auto scaleArea = juce::Rectangle<int>(row1.getX() + xPos, row1.getY(), knobSize, row1.getHeight());
     scaleLabel.setBounds(scaleArea.removeFromTop(labelHeight));
-    scaleSelector.setBounds(scaleArea.removeFromTop(24));
+    scaleSelector.setBounds(scaleArea.removeFromTop(28).reduced(5, 0));
 
-    placeKnob(octaveRangeSlider, octaveLabel, row2);
+    placeKnob(octaveRangeSlider, octaveLabel, row1, 5);
 
-    area.removeFromTop(10);
+    area.removeFromTop(15);
 
-    // Row 3: Note controls
-    auto row3 = area.removeFromTop(knobSize + labelHeight);
-    placeKnob(noteLengthSlider, noteLengthLabel, row3);
-    placeKnob(velocitySlider, velocityLabel, row3);
+    // ROW 2: Note controls + Groove
+    auto row2 = area.removeFromTop(knobSize + labelHeight);
+    placeKnob(noteLengthSlider, noteLengthLabel, row2, 0);
+    placeKnob(velocitySlider, velocityLabel, row2, 1);
+    placeKnob(swingSlider, swingLabel, row2, 2);
+    placeKnob(humanizeSlider, humanizeLabel, row2, 3);
+    placeKnob(seedSlider, seedLabel, row2, 4);
 
-    area.removeFromTop(10);
+    // Regenerate button
+    xPos = knobSpacing + 5 * (knobSize + knobSpacing);
+    auto regenArea = juce::Rectangle<int>(row2.getX() + xPos, row2.getY() + labelHeight, knobSize, knobSize);
+    regenerateButton.setBounds(regenArea.reduced(5));
 
-    // Row 4: Groove & randomization
-    auto row4 = area.removeFromTop(knobSize + labelHeight);
-    placeKnob(swingSlider, swingLabel, row4);
-    placeKnob(humanizeSlider, humanizeLabel, row4);
-    placeKnob(seedSlider, seedLabel, row4);
+    area.removeFromTop(15);
 
-    regenerateButton.setBounds(row4.removeFromLeft(100).reduced(5));
+    // MIDI Export at bottom
+    auto exportArea = area.removeFromTop(60);
+    int totalExportWidth = 400;
+    int exportX = (area.getWidth() - totalExportWidth) / 2 + area.getX();
+
+    midiDragArea.setBounds(exportX, exportArea.getY(), 200, 60);
+    barLengthLabel.setBounds(exportX + 210, exportArea.getY() + 10, 70, 20);
+    barLengthSelector.setBounds(exportX + 210, exportArea.getY() + 32, 120, 24);
+
+    // Hide circular viz for cleaner layout
+    circularViz.setBounds(0, 0, 0, 0);
 }
 
 void BasslineGeneratorEditor::timerCallback()
@@ -150,4 +211,47 @@ void BasslineGeneratorEditor::timerCallback()
 
     stepGrid.setPattern(steps, hits, rotation);
     stepGrid.setCurrentStep(currentStep, isPlaying);
+}
+
+juce::MemoryBlock BasslineGeneratorEditor::createMidiPattern()
+{
+    MidiPatternExporter::PatternParams params;
+
+    // Get all current parameters
+    params.steps = static_cast<int>(processorRef.apvts.getRawParameterValue("steps")->load());
+    params.hits = static_cast<int>(processorRef.apvts.getRawParameterValue("hits")->load());
+    params.rotation = static_cast<int>(processorRef.apvts.getRawParameterValue("rotation")->load());
+    params.rootNote = static_cast<int>(processorRef.apvts.getRawParameterValue("rootNote")->load());
+    params.scaleIndex = static_cast<int>(processorRef.apvts.getRawParameterValue("scale")->load());
+    params.octaveRange = static_cast<int>(processorRef.apvts.getRawParameterValue("octaveRange")->load());
+    params.velocity = static_cast<int>(processorRef.apvts.getRawParameterValue("velocity")->load());
+    params.noteLength = processorRef.apvts.getRawParameterValue("noteLength")->load();
+    params.swing = processorRef.apvts.getRawParameterValue("swing")->load();
+    params.humanize = static_cast<int>(processorRef.apvts.getRawParameterValue("humanize")->load());
+    params.seed = static_cast<int>(processorRef.apvts.getRawParameterValue("seed")->load());
+
+    // Get number of bars from selector
+    switch (barLengthSelector.getSelectedId())
+    {
+        case 1: params.numBars = 1; break;
+        case 2: params.numBars = 2; break;
+        case 3: params.numBars = 4; break;
+        case 4: params.numBars = 8; break;
+        default: params.numBars = 1; break;
+    }
+
+    // Get tempo and time signature from host if available
+    if (auto* playHead = processorRef.getPlayHead())
+    {
+        if (auto posInfo = playHead->getPosition())
+        {
+            params.bpm = posInfo->getBpm().orFallback(120.0);
+            if (auto timeSig = posInfo->getTimeSignature())
+            {
+                params.timeSignatureNumerator = timeSig->numerator;
+            }
+        }
+    }
+
+    return MidiPatternExporter::exportToMemory(params);
 }
