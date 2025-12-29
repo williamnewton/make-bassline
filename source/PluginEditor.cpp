@@ -97,9 +97,9 @@ BasslineGeneratorEditor::~BasslineGeneratorEditor()
 
 void BasslineGeneratorEditor::paint(juce::Graphics& g)
 {
-    // Comic book gradient background
-    auto gradient = juce::ColourGradient(juce::Colour(0xff0f3460), 0, 0,
-                                         juce::Colour(0xff1a1a2e), 0, static_cast<float>(getHeight()),
+    // Black to dark red gradient background
+    auto gradient = juce::ColourGradient(juce::Colour(0xff000000), 0, 0,
+                                         juce::Colour(0xff1a0000), 0, static_cast<float>(getHeight()),
                                          false);
     g.setGradientFill(gradient);
     g.fillAll();
@@ -107,23 +107,24 @@ void BasslineGeneratorEditor::paint(juce::Graphics& g)
     auto titleBounds = getLocalBounds().removeFromTop(50).reduced(10, 5);
 
     // Comic book title with bold outline
-    g.setFont(juce::Font(32.0f, juce::Font::bold | juce::Font::italic));
+    g.setFont(juce::Font(36.0f, juce::Font::bold | juce::Font::italic));
 
     // Black outline
     g.setColour(juce::Colours::black);
-    for (int x = -2; x <= 2; ++x)
-        for (int y = -2; y <= 2; ++y)
-            g.drawText("BASSLINE GENERATOR", titleBounds.translated(x, y),
-                      juce::Justification::centred, true);
+    for (int x = -3; x <= 3; ++x)
+        for (int y = -3; y <= 3; ++y)
+            if (x != 0 || y != 0)
+                g.drawText("MAKE BASSLINE", titleBounds.translated(x, y),
+                          juce::Justification::centred, true);
 
-    // Yellow fill
-    g.setColour(juce::Colour(0xffffea00));
-    g.drawText("BASSLINE GENERATOR", titleBounds,
+    // Red fill
+    g.setColour(juce::Colour(0xffff0000));
+    g.drawText("MAKE BASSLINE", titleBounds,
                juce::Justification::centred, true);
 
-    // White highlight
-    g.setColour(juce::Colours::white.withAlpha(0.4f));
-    g.drawText("BASSLINE GENERATOR", titleBounds.translated(-1, -1),
+    // Yellow highlight
+    g.setColour(juce::Colour(0xffffdd00).withAlpha(0.6f));
+    g.drawText("MAKE BASSLINE", titleBounds.translated(-1, -1),
                juce::Justification::centred, true);
 }
 
@@ -138,10 +139,10 @@ void BasslineGeneratorEditor::resized()
 
     area.removeFromTop(15);
 
-    // Two rows of perfectly aligned knobs
+    // Single row of 7 essential controls
     int knobSize = 90;
     int labelHeight = 22;
-    int knobSpacing = (area.getWidth() - (6 * knobSize)) / 7; // Space evenly across width
+    int knobSpacing = (area.getWidth() - (7 * knobSize)) / 8; // Space evenly for 7 controls
 
     auto placeKnob = [&](juce::Slider& slider, juce::Label& label, juce::Rectangle<int>& row, int index)
     {
@@ -151,7 +152,7 @@ void BasslineGeneratorEditor::resized()
         slider.setBounds(knobArea.removeFromBottom(knobSize));
     };
 
-    // ROW 1: Euclidean Rhythm + Pitch
+    // SINGLE ROW: Euclidean Rhythm + Key + Groove
     auto row1 = area.removeFromTop(knobSize + labelHeight);
     placeKnob(stepsSlider, stepsLabel, row1, 0);
     placeKnob(hitsSlider, hitsLabel, row1, 1);
@@ -164,33 +165,38 @@ void BasslineGeneratorEditor::resized()
     scaleLabel.setBounds(scaleArea.removeFromTop(labelHeight));
     scaleSelector.setBounds(scaleArea.removeFromTop(28).reduced(5, 0));
 
-    placeKnob(octaveRangeSlider, octaveLabel, row1, 5);
+    placeKnob(swingSlider, swingLabel, row1, 5);
+    placeKnob(velocitySlider, velocityLabel, row1, 6);
 
     area.removeFromTop(15);
 
-    // ROW 2: Note controls + Groove
-    auto row2 = area.removeFromTop(knobSize + labelHeight);
-    placeKnob(noteLengthSlider, noteLengthLabel, row2, 0);
-    placeKnob(velocitySlider, velocityLabel, row2, 1);
-    placeKnob(swingSlider, swingLabel, row2, 2);
-    placeKnob(humanizeSlider, humanizeLabel, row2, 3);
-    placeKnob(seedSlider, seedLabel, row2, 4);
-
-    // Regenerate button
-    xPos = knobSpacing + 5 * (knobSize + knobSpacing);
-    auto regenArea = juce::Rectangle<int>(row2.getX() + xPos, row2.getY() + labelHeight, knobSize, knobSize);
-    regenerateButton.setBounds(regenArea.reduced(5));
-
-    area.removeFromTop(15);
-
-    // MIDI Export at bottom
-    auto exportArea = area.removeFromTop(60);
-    int totalExportWidth = 400;
+    // MIDI Export at bottom - centered and compact
+    auto exportArea = area.removeFromTop(80);
+    int totalExportWidth = 340;
     int exportX = (area.getWidth() - totalExportWidth) / 2 + area.getX();
 
-    midiDragArea.setBounds(exportX, exportArea.getY(), 200, 60);
-    barLengthLabel.setBounds(exportX + 210, exportArea.getY() + 10, 70, 20);
-    barLengthSelector.setBounds(exportX + 210, exportArea.getY() + 32, 120, 24);
+    // Label centered above the controls
+    barLengthLabel.setBounds(exportX, exportArea.getY(), totalExportWidth, 20);
+
+    // MIDI drag and bar selector side by side, centered
+    int dragWidth = 200;
+    int selectorWidth = 120;
+    int spacing = 20;
+    int controlsY = exportArea.getY() + 25;
+
+    midiDragArea.setBounds(exportX, controlsY, dragWidth, 50);
+    barLengthSelector.setBounds(exportX + dragWidth + spacing, controlsY + 13, selectorWidth, 24);
+
+    // Hide less important controls (still functional, just not visible)
+    octaveRangeSlider.setBounds(0, 0, 0, 0);
+    octaveLabel.setBounds(0, 0, 0, 0);
+    noteLengthSlider.setBounds(0, 0, 0, 0);
+    noteLengthLabel.setBounds(0, 0, 0, 0);
+    humanizeSlider.setBounds(0, 0, 0, 0);
+    humanizeLabel.setBounds(0, 0, 0, 0);
+    seedSlider.setBounds(0, 0, 0, 0);
+    seedLabel.setBounds(0, 0, 0, 0);
+    regenerateButton.setBounds(0, 0, 0, 0);
 
     // Hide circular viz for cleaner layout
     circularViz.setBounds(0, 0, 0, 0);

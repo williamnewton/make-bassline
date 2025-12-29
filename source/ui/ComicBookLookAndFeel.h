@@ -6,20 +6,20 @@ class ComicBookLookAndFeel : public juce::LookAndFeel_V4
 public:
     ComicBookLookAndFeel()
     {
-        // Comic book color palette
-        setColour(juce::Slider::thumbColourId, juce::Colour(0xff00ffff));        // Cyan
-        setColour(juce::Slider::trackColourId, juce::Colour(0xffff00ff));        // Magenta
-        setColour(juce::Slider::backgroundColourId, juce::Colour(0xff1a1a2e));   // Dark background
-        setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffffea00)); // Yellow
-        setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff000000)); // Black outline
+        // Yellow/Red/Black color palette
+        setColour(juce::Slider::thumbColourId, juce::Colour(0xffffdd00));        // Bright Yellow
+        setColour(juce::Slider::trackColourId, juce::Colour(0xffff0000));        // Red
+        setColour(juce::Slider::backgroundColourId, juce::Colour(0xff1a0000));   // Deep red-black
+        setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffffdd00)); // Yellow
+        setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff000000)); // Black
 
-        setColour(juce::Label::textColourId, juce::Colours::white);
-        setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff16213e));
-        setColour(juce::ComboBox::outlineColourId, juce::Colour(0xffffea00));
-        setColour(juce::ComboBox::textColourId, juce::Colours::white);
+        setColour(juce::Label::textColourId, juce::Colour(0xffffdd00));          // Yellow text
+        setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff330000)); // Dark red
+        setColour(juce::ComboBox::outlineColourId, juce::Colour(0xffffdd00));    // Yellow outline
+        setColour(juce::ComboBox::textColourId, juce::Colour(0xffffdd00));       // Yellow text
 
-        setColour(juce::TextButton::buttonColourId, juce::Colour(0xffff00ff));
-        setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        setColour(juce::TextButton::buttonColourId, juce::Colour(0xffff0000));   // Red button
+        setColour(juce::TextButton::textColourOffId, juce::Colour(0xffffdd00));  // Yellow text
     }
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -43,12 +43,12 @@ public:
         g.strokePath(backgroundArc, juce::PathStrokeType(lineW + 3.0f,
                      juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        // Dark background
-        g.setColour(juce::Colour(0xff16213e));
+        // Dark red background
+        g.setColour(juce::Colour(0xff330000));
         g.strokePath(backgroundArc, juce::PathStrokeType(lineW,
                      juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        // Value arc with gradient
+        // Value arc with red to yellow gradient
         if (toAngle > rotaryStartAngle)
         {
             juce::Path valueArc;
@@ -56,9 +56,9 @@ public:
                                    arcRadius, arcRadius, 0.0f,
                                    rotaryStartAngle, toAngle, true);
 
-            // Yellow to cyan gradient
-            auto gradient = juce::ColourGradient(juce::Colour(0xffffea00), bounds.getCentreX(), bounds.getY(),
-                                                 juce::Colour(0xff00ffff), bounds.getCentreX(), bounds.getBottom(),
+            // Red to yellow gradient
+            auto gradient = juce::ColourGradient(juce::Colour(0xffff0000), bounds.getCentreX(), bounds.getY(),
+                                                 juce::Colour(0xffffdd00), bounds.getCentreX(), bounds.getBottom(),
                                                  false);
             g.setGradientFill(gradient);
             g.strokePath(valueArc, juce::PathStrokeType(lineW,
@@ -74,12 +74,12 @@ public:
         g.setColour(juce::Colours::black);
         g.fillEllipse(juce::Rectangle<float>(thumbWidth + 4, thumbWidth + 4).withCentre(thumbPoint));
 
-        // Cyan thumb
-        g.setColour(juce::Colour(0xff00ffff));
+        // Yellow thumb
+        g.setColour(juce::Colour(0xffffdd00));
         g.fillEllipse(juce::Rectangle<float>(thumbWidth, thumbWidth).withCentre(thumbPoint));
 
         // White highlight
-        g.setColour(juce::Colours::white.withAlpha(0.8f));
+        g.setColour(juce::Colours::white.withAlpha(0.6f));
         g.fillEllipse(juce::Rectangle<float>(thumbWidth * 0.4f, thumbWidth * 0.4f)
                      .withCentre(thumbPoint.translated(-thumbWidth * 0.15f, -thumbWidth * 0.15f)));
     }

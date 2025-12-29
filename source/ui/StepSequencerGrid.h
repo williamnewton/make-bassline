@@ -15,8 +15,8 @@ public:
     {
         auto bounds = getLocalBounds().reduced(2);
 
-        // Comic book background
-        g.setColour(juce::Colour(0xff1a1a2e));
+        // Black background
+        g.setColour(juce::Colours::black);
         g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
 
         if (numSteps <= 0)
@@ -45,8 +45,8 @@ public:
                 g.setColour(juce::Colours::black);
                 g.fillRoundedRectangle(stepBounds.toFloat().expanded(2), 4.0f);
 
-                // Current playing step - bright yellow/magenta
-                g.setColour(hasHit ? juce::Colour(0xffffea00) : juce::Colour(0xffff00ff));
+                // Current playing step - bright yellow or red
+                g.setColour(hasHit ? juce::Colour(0xffffdd00) : juce::Colour(0xffff0000));
                 g.fillRoundedRectangle(stepBounds.toFloat(), 4.0f);
 
                 // White highlight
@@ -55,11 +55,11 @@ public:
             }
             else if (hasHit)
             {
-                // Step with a hit - cyan
+                // Step with a hit - red
                 g.setColour(juce::Colours::black);
                 g.fillRoundedRectangle(stepBounds.toFloat().expanded(2), 4.0f);
 
-                g.setColour(juce::Colour(0xff00ffff));
+                g.setColour(juce::Colour(0xffcc0000));
                 g.fillRoundedRectangle(stepBounds.toFloat(), 4.0f);
 
                 g.setColour(juce::Colours::white.withAlpha(0.3f));
@@ -68,10 +68,10 @@ public:
             else
             {
                 // Empty step
-                g.setColour(juce::Colour(0xff16213e));
+                g.setColour(juce::Colour(0xff330000));
                 g.fillRoundedRectangle(stepBounds.toFloat(), 4.0f);
 
-                g.setColour(juce::Colour(0xff0f3460));
+                g.setColour(juce::Colour(0xff660000));
                 g.drawRoundedRectangle(stepBounds.toFloat(), 4.0f, 1.5f);
             }
 
@@ -85,7 +85,7 @@ public:
         g.setColour(juce::Colours::black);
         g.drawRoundedRectangle(bounds.toFloat(), 8.0f, 3.0f);
 
-        g.setColour(juce::Colour(0xffffea00));
+        g.setColour(juce::Colour(0xffffdd00));
         g.drawRoundedRectangle(bounds.toFloat().reduced(2), 8.0f, 2.0f);
     }
 
