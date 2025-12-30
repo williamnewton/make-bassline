@@ -15,7 +15,7 @@ public:
     // Callback when a step is clicked
     std::function<void(int step)> onStepClicked;
 
-    // Callback to check if step is manually toggled
+    // Callback to check if step is manually toggled (used to flip the state)
     std::function<bool(int step)> isStepManuallyToggled;
 
     void paint(juce::Graphics& g) override
@@ -42,10 +42,13 @@ public:
                 stepHeight
             ).reduced(6);
 
-            // Determine if this step has a hit
-            bool hasHit = euclidean.shouldTrigger(i, numSteps, numHits, rotation);
-            bool isHovered = (i == hoveredStep);
+            // Determine final state: algorithm + manual toggle
+            bool algorithmState = euclidean.shouldTrigger(i, numSteps, numHits, rotation);
             bool isManuallyToggled = isStepManuallyToggled ? isStepManuallyToggled(i) : false;
+            bool isHovered = (i == hoveredStep);
+
+            // Final state: toggle flips the algorithm state
+            bool isActive = algorithmState != isManuallyToggled; // XOR logic
 
             // Color based on state - bold pop-art colors
             if (i == currentStep && isPlaying)
@@ -55,16 +58,16 @@ public:
                 g.fillRoundedRectangle(stepBounds.toFloat().expanded(3), 5.0f);
 
                 // Current playing step - bright yellow or red
-                g.setColour(hasHit ? juce::Colour(0xffffdd00) : juce::Colour(0xffff3333));
+                g.setColour(isActive ? juce::Colour(0xffffdd00) : juce::Colour(0xffff3333));
                 g.fillRoundedRectangle(stepBounds.toFloat(), 5.0f);
 
                 // Shine effect
                 g.setColour(juce::Colours::white.withAlpha(0.5f));
                 g.fillRoundedRectangle(stepBounds.toFloat().removeFromTop(stepBounds.getHeight() * 0.35f), 5.0f);
             }
-            else if (hasHit)
+            else if (isActive)
             {
-                // Step with a hit - bold red with black outline
+                // Step is ON - bold red with black outline
                 g.setColour(juce::Colours::black);
                 g.fillRoundedRectangle(stepBounds.toFloat().expanded(isHovered ? 3 : 2), 5.0f);
 
@@ -75,30 +78,16 @@ public:
                 // Subtle shine
                 g.setColour(juce::Colours::white.withAlpha(isHovered ? 0.3f : 0.2f));
                 g.fillRoundedRectangle(stepBounds.toFloat().removeFromTop(stepBounds.getHeight() * 0.3f), 5.0f);
-
-                // Indicator for manually toggled steps
-                if (isManuallyToggled)
-                {
-                    g.setColour(juce::Colour(0xffffdd00));
-                    g.fillEllipse(stepBounds.toFloat().getCentreX() - 3, stepBounds.toFloat().getY() + 4, 6, 6);
-                }
             }
             else
             {
-                // Empty step - light gray with black outline
+                // Step is OFF - light gray with black outline
                 g.setColour(juce::Colours::black);
                 g.fillRoundedRectangle(stepBounds.toFloat().expanded(isHovered ? 2.5f : 1.5f), 5.0f);
 
                 // Slightly darker on hover
                 g.setColour(isHovered ? juce::Colour(0xffc0c0c0) : juce::Colour(0xffe0e0e0));
                 g.fillRoundedRectangle(stepBounds.toFloat(), 5.0f);
-
-                // Indicator for manually toggled steps
-                if (isManuallyToggled)
-                {
-                    g.setColour(juce::Colour(0xffffdd00));
-                    g.fillEllipse(stepBounds.toFloat().getCentreX() - 3, stepBounds.toFloat().getY() + 4, 6, 6);
-                }
             }
         }
 
